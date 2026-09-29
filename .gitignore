@@ -1,6 +1,7 @@
 data/raw/
 data/processed/
 !data/sample.csv
+!data/core.csv
 
 experiments/**/*.pt
 experiments/**/*.npz
