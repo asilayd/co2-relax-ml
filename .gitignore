@@ -3,6 +3,11 @@ data/processed/
 !data/sample.csv
 !data/core.csv
 
+reports/figures/
+reports/*.csv
+reports/TABLES.tex
+reports/NUMBERS.txt
+
 experiments/**/*.pt
 experiments/**/*.npz
 !experiments/**/metrics.json

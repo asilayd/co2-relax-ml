@@ -36,10 +36,9 @@ def metrics(true: np.ndarray, pred: np.ndarray, rel_floor: float = 1e-3) -> dict
     }
 
 
-
 def extract_A(df: pd.DataFrame, target: str, tol: float = 1e-9) -> pd.Series:
     """Предэкспоненциальный множитель A = R / [1 - exp(-phi)].
- 
+
     На равновесии обращаются в ноль и числитель, и знаменатель, поэтому там
     A не определён и возвращается NaN. Равновесие определяется по допуску:
     phi должен быть точным нулём, но в арифметике с плавающей точкой выходит
@@ -50,6 +49,7 @@ def extract_A(df: pd.DataFrame, target: str, tol: float = 1e-9) -> pd.Series:
     f = factor(phi)
     A = np.where(np.abs(phi) > tol, df[target].to_numpy() / np.where(f != 0, f, 1.0), np.nan)
     return pd.Series(A, index=df.index, name=f"A_{target}")
+
 
 def _fill_nan(axes: list[np.ndarray], grid: np.ndarray) -> np.ndarray:
     """Заполняет пропуски в решётке ближайшими значениями.
@@ -122,6 +122,30 @@ class ScatteredSpline:
             out[nan] = griddata(self._pts, self._val,
                                 test[TEMP_COLS].to_numpy()[nan], method="nearest")
         return out
+
+
+def spline_predict(train: pd.DataFrame, test: pd.DataFrame, target: str,
+                   on_A: bool) -> np.ndarray:
+    """Предсказание сплайн-бейзлайна в одном из двух режимов.
+
+    on_A=False — интерполируется сам R; on_A=True — интерполируется
+    амплитуда, а R восстанавливается умножением на множитель детального
+    баланса, вычисленный по формуле.
+
+    Вынесено отдельно от eval_spline, потому что для диагностики нужны
+    сами предсказания, а не только сводные метрики.
+    """
+    tr, col = train, target
+    if on_A:
+        tr, col = train.assign(_A=extract_A(train, target)), "_A"
+    try:
+        model = GridSpline().fit(tr, col)
+    except ValueError:
+        model = ScatteredSpline().fit(tr, col)
+    pred = model.predict(test)
+    if on_A:
+        pred = pred * factor(AFFINITY[target](test["T"], test["T12"], test["T3"]))
+    return pred
 
 
 def run_baseline(train, test, target, model=None, on_A: bool = False) -> dict:

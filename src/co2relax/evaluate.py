@@ -6,9 +6,8 @@ import time
 import numpy as np
 import pandas as pd
 
-from .baselines import GridSpline, ScatteredSpline, extract_A, metrics
+from .baselines import metrics, spline_predict
 from .data import TARGETS
-from .physics import AFFINITY, factor
 
 
 def constraint_checks(true: np.ndarray, pred: np.ndarray, scale: float,
@@ -32,18 +31,7 @@ def constraint_checks(true: np.ndarray, pred: np.ndarray, scale: float,
 def eval_spline(train: pd.DataFrame, test: pd.DataFrame, target: str,
                 on_A: bool, scale: float) -> dict:
     """Сплайн-бейзлайн в одном из двух режимов."""
-    col, tr = target, train
-    if on_A:
-        tr = train.assign(_A=extract_A(train, target))
-        col = "_A"
-    try:
-        model = GridSpline().fit(tr, col)
-    except ValueError:
-        model = ScatteredSpline().fit(tr, col)
-    pred = model.predict(test)
-    if on_A:
-        pred = pred * factor(AFFINITY[target](test["T"], test["T12"], test["T3"]))
-
+    pred = spline_predict(train, test, target, on_A)
     true = test[target].to_numpy()
     eq = ((test["T"] == test["T12"]) & (test["T12"] == test["T3"])).to_numpy()
     return {**metrics(true, pred), **constraint_checks(true, pred, scale, eq)}
